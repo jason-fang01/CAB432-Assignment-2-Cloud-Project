@@ -10,52 +10,88 @@
 		/>
 	</head>
 	<body class="bg-gray-100">
+		
 		<div class="container mx-auto px-4 py-8">
-			<h1 class="text-xl font-bold mb-8">Upload Videos</h1>
+			<div class="container mx-auto px-4">
+			<div class="text-center my-8">
+				<h1 class="text-3xl font-bold text-gray-800 mb-2">
+				Create Split-Screen Videos for Social Media
+				</h1>
+				<p class="text-gray-600">
+				Combine two videos into a single 18:9 split-screen format, perfect for sharing on TikTok, Instagram, and other mobile platforms. Simply upload two videos, choose your preferred audio option, and select a vertical or horizontal split. Your final video will be tailored to deliver the best viewing experience on mobile devices.
+				</p>
+			</div>
 			<form
 				action="/upload"
 				method="post"
 				enctype="multipart/form-data"
 				class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
 			>
-				<div class="mb-4">
-					<label
-						for="video1"
-						class="block text-gray-700 text-sm font-bold mb-2"
-						>Video 1:</label
-					>
-					<input
-						type="file"
-						name="video1"
-						id="video1"
-						required
-						class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight"
-					/>
-				</div>
-				<div class="mb-6">
-					<label
-						for="video2"
-						class="block text-gray-700 text-sm font-bold mb-2"
-						>Video 2:</label
-					>
-					<input
-						type="file"
-						name="video2"
-						id="video2"
-						required
-						class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight"
-					/>
-				</div>
-
-				<div class="mb-6">
-					<!-- Audio Options -->
-					<!-- ... Your radio buttons here with Tailwind CSS classes ... -->
-					<div class="mb-4">
-						<span class="text-gray-700 text-sm font-bold mb-2"
-							>Audio Options:</span
+				<div class="grid md:grid-cols-2 md:gap-6">
+					<!-- Video Options Column -->
+					<div class="mb-4 md:mb-0">
+						<label
+							for="video1"
+							class="block text-gray-700 text-sm font-bold mb-2"
+							>Video 1:</label
 						>
+						<input
+							type="file"
+							name="video1"
+							id="video1"
+							required
+							class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight"
+						/>
+
+						<label
+							for="video2"
+							class="block text-gray-700 text-sm font-bold mb-2 mt-4"
+							>Video 2:</label
+						>
+						<input
+							type="file"
+							name="video2"
+							id="video2"
+							required
+							class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight"
+						/>
+
+						<div class="mt-4">
+							<label
+								for="layoutVertical"
+								class="inline-flex items-center mr-6"
+							>
+								<input
+									type="radio"
+									name="layoutOption"
+									value="vertical"
+									checked
+									class="form-radio"
+								/>
+								<span class="ml-2">Vertical Split</span>
+							</label>
+							<label
+								for="layoutHorizontal"
+								class="inline-flex items-center"
+							>
+								<input
+									type="radio"
+									name="layoutOption"
+									value="horizontal"
+									class="form-radio"
+								/>
+								<span class="ml-2">Horizontal Split</span>
+							</label>
+						</div>
+					</div>
+
+					<!-- Audio Options Column -->
+					<div class="mb-4 md:mb-0">
+						<div class="block text-gray-700 text-sm font-bold mb-2">
+							Audio Options:
+						</div>
 						<div class="mt-2">
-							<label class="inline-flex items-center">
+							<label class="inline-flex items-center mb-2">
 								<input
 									type="radio"
 									class="form-radio"
@@ -69,7 +105,7 @@
 							</label>
 						</div>
 						<div class="mt-2">
-							<label class="inline-flex items-center">
+							<label class="inline-flex items-center mb-2">
 								<input
 									type="radio"
 									class="form-radio"
@@ -96,25 +132,14 @@
 						</div>
 					</div>
 				</div>
-				<div class="flex items-center justify-between">
+
+				<div class="flex items-center justify-between mt-6">
 					<input
 						type="submit"
 						value="Submit"
 						class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
 					/>
 				</div>
-				<!-- Loading Bar Container (hidden initially) -->
-				<!-- <div id="loadingBarContainer" class="hidden">
-					<div class="bg-gray-300">
-						<div
-							id="loadingBar"
-							class="bg-blue-500 text-xs font-semibold text-blue-100 text-center p-0.5 leading-none"
-							style="width: 0%"
-						>
-							0%
-						</div>
-					</div>
-				</div> -->
 			</form>
 		</div>
 	</body>

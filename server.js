@@ -49,17 +49,31 @@ app.post(
 		const video2Path = files.video2[0].path;
 		const outputPath = path.join(outputDir, Date.now() + "-merged.mp4");
 
+		const layoutOption = req.body.layoutOption; // Get the layout option from the request body
+
+		// Choose the FFmpeg filter based on the layout option
+		let filterComplex;
+		if (layoutOption === "horizontal") {
+			// For horizontal split, scale each video to half of 1080 width (which is 540) but keep the 1920 height
+			filterComplex =
+				"[0:v]scale=540:1920,setsar=1[left];[1:v]scale=540:1920,setsar=1[right];[left][right]hstack=inputs=2[v]";
+		} else {
+			// Default to vertical if no layoutOption is specified or if it's 'vertical'
+			// For vertical split, scale each video to full 1080 width but half of 1920 height (which is 960)
+			filterComplex =
+				"[0:v]scale=1080:960,setsar=1[top];[1:v]scale=1080:960,setsar=1[bottom];[top][bottom]vstack=inputs=2[v]";
+		}
+
 		// Choose FFmpeg command based on audio option
-		let ffmpegCommand;
-		switch (audioOption) {
+		switch (req.body.audioOption) {
 			case "audio1":
-				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "[0:v]scale=1080:960,setsar=1[top];[1:v]scale=1080:960,setsar=1[bottom];[top][bottom]vstack=inputs=2[v]" -map "[v]" -map 0:a -c:a aac "${outputPath}"`;
+				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "${filterComplex}" -map "[v]" -map 0:a -c:a aac "${outputPath}"`;
 				break;
 			case "audio2":
-				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "[0:v]scale=1080:960,setsar=1[top];[1:v]scale=1080:960,setsar=1[bottom];[top][bottom]vstack=inputs=2[v]" -map "[v]" -map 1:a -c:a aac "${outputPath}"`;
+				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "${filterComplex}" -map "[v]" -map 1:a -c:a aac "${outputPath}"`;
 				break;
 			case "audioBoth":
-				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "[0:v]scale=1080:960,setsar=1[top];[1:v]scale=1080:960,setsar=1[bottom];[top][bottom]vstack=inputs=2[v];[0:a][1:a]amix=inputs=2[a]" -map "[v]" -map "[a]" -c:a aac "${outputPath}"`;
+				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "${filterComplex};[0:a][1:a]amix=inputs=2[a]" -map "[v]" -map "[a]" -c:a aac "${outputPath}"`;
 				break;
 			default:
 				return res.status(400).send("Invalid audio option selected.");
