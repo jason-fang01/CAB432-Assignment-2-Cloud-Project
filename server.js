@@ -18,16 +18,29 @@ if (!fs.existsSync(outputDir)) {
 }
 
 // Specify where uploaded files will be stored
+const fileTypes = /video\/(mp4|mpeg|ogg|webm|3gp|mov|avi|wmv|mkv|flv)/; // Regex to match allowed video mime types
+
 const storage = multer.diskStorage({
 	destination: function (req, file, cb) {
-		cb(null, "uploads/"); // Make sure this uploads directory exists
+		cb(null, "uploads/");
 	},
 	filename: function (req, file, cb) {
-		cb(null, file.fieldname + "-" + Date.now() + ".mp4");
+		cb(
+			null,
+			file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+		); // Use original file extension
 	},
 });
 
-const upload = multer({ storage: storage });
+const fileFilter = (req, file, cb) => {
+	if (fileTypes.test(file.mimetype)) {
+		cb(null, true);
+	} else {
+		cb(new Error("Unsupported file type!"), false);
+	}
+};
+
+const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 app.get("/", (req, res) => {
 	res.sendFile(__dirname + "/index.html");
@@ -94,6 +107,12 @@ app.post(
 				output: outputPath,
 			});
 		});
+	},
+	(error, req, res, next) => {
+		// Error handling middleware
+		if (error) {
+			return res.status(400).send(error.message);
+		}
 	}
 );
 
