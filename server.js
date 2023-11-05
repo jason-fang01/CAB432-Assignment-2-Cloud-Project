@@ -56,12 +56,12 @@ app.post(
 		if (layoutOption === "horizontal") {
 			// For horizontal split, scale each video to half of 1080 width (which is 540) but keep the 1920 height
 			filterComplex =
-				"[0:v]scale=540:1920,setsar=1[left];[1:v]scale=540:1920,setsar=1[right];[left][right]hstack=inputs=2[v]";
+				"[0:v]scale=1080:960,setsar=1[top];[1:v]scale=1080:960,setsar=1[bottom];[top][bottom]vstack=inputs=2[v]";
 		} else {
 			// Default to vertical if no layoutOption is specified or if it's 'vertical'
 			// For vertical split, scale each video to full 1080 width but half of 1920 height (which is 960)
 			filterComplex =
-				"[0:v]scale=1080:960,setsar=1[top];[1:v]scale=1080:960,setsar=1[bottom];[top][bottom]vstack=inputs=2[v]";
+				"[0:v]scale=540:1920,setsar=1[left];[1:v]scale=540:1920,setsar=1[right];[left][right]hstack=inputs=2[v]";
 		}
 
 		// Choose FFmpeg command based on audio option
