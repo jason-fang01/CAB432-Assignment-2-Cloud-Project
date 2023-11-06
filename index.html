@@ -10,137 +10,214 @@
 		/>
 	</head>
 	<body class="bg-gray-100">
-		
 		<div class="container mx-auto px-4 py-8">
 			<div class="container mx-auto px-4">
-			<div class="text-center my-8">
-				<h1 class="text-3xl font-bold text-gray-800 mb-2">
-				Create Split-Screen Videos for Social Media
-				</h1>
-				<p class="text-gray-600">
-				Combine two videos into a single 18:9 split-screen format, perfect for sharing on TikTok, Instagram, and other mobile platforms. Simply upload two videos, choose your preferred audio option, and select a vertical or horizontal split. Your final video will be tailored to deliver the best viewing experience on mobile devices.
-				</p>
+				<div class="text-center my-8">
+					<h1 class="text-3xl font-bold text-gray-800 mb-2">
+						Create Split-Screen Videos for Social Media
+					</h1>
+					<p class="text-gray-600">
+						Combine two videos into a single 18:9 split-screen
+						format, perfect for sharing on TikTok, Instagram, and
+						other mobile platforms. Simply upload two videos, choose
+						your preferred audio option, and select a vertical or
+						horizontal split. Your final video will be tailored to
+						deliver the best viewing experience on mobile devices.
+					</p>
+				</div>
+				<form
+					id="video-upload-form"
+					action="/upload"
+					method="post"
+					enctype="multipart/form-data"
+					class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
+				>
+					<div class="grid md:grid-cols-2 md:gap-6">
+						<!-- Video Options Column -->
+						<div class="mb-4 md:mb-0">
+							<label
+								for="video1"
+								class="block text-gray-700 text-sm font-bold mb-2"
+								>Video 1:</label
+							>
+							<input
+								type="file"
+								name="video1"
+								id="video1"
+								required
+								class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight"
+							/>
+
+							<label
+								for="video2"
+								class="block text-gray-700 text-sm font-bold mb-2 mt-4"
+								>Video 2:</label
+							>
+							<input
+								type="file"
+								name="video2"
+								id="video2"
+								required
+								class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight"
+							/>
+
+							<div class="mt-4">
+								<label
+									for="layoutHorizontal"
+									class="inline-flex items-center"
+								>
+									<input
+										type="radio"
+										name="layoutOption"
+										value="horizontal"
+										checked
+										class="form-radio"
+									/>
+									<span class="ml-2"
+										>Horizontal Split (Top / Bottom)</span
+									>
+								</label>
+								<label
+									for="layoutVertical"
+									class="inline-flex items-center mr-6"
+								>
+									<input
+										type="radio"
+										name="layoutOption"
+										value="vertical"
+										class="form-radio"
+									/>
+									<span class="ml-2"
+										>Vertical Split (Left / Right)</span
+									>
+								</label>
+							</div>
+						</div>
+
+						<!-- Audio Options Column -->
+						<div class="mb-4 md:mb-0">
+							<div
+								class="block text-gray-700 text-sm font-bold mb-2"
+							>
+								Audio Options:
+							</div>
+							<div class="mt-2">
+								<label class="inline-flex items-center mb-2">
+									<input
+										type="radio"
+										class="form-radio"
+										name="audioOption"
+										value="audio1"
+										checked
+									/>
+									<span class="ml-2"
+										>Use audio from video 1 only</span
+									>
+								</label>
+							</div>
+							<div class="mt-2">
+								<label class="inline-flex items-center mb-2">
+									<input
+										type="radio"
+										class="form-radio"
+										name="audioOption"
+										value="audio2"
+									/>
+									<span class="ml-2"
+										>Use audio from video 2 only</span
+									>
+								</label>
+							</div>
+							<div class="mt-2">
+								<label class="inline-flex items-center">
+									<input
+										type="radio"
+										class="form-radio"
+										name="audioOption"
+										value="audioBoth"
+									/>
+									<span class="ml-2"
+										>Use audio from both videos</span
+									>
+								</label>
+							</div>
+						</div>
+					</div>
+
+					<div class="flex items-center justify-between mt-6">
+						<input
+							type="submit"
+							value="Submit"
+							class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+						/>
+					</div>
+				</form>
+
+				<!-- Instructions for users -->
+				<div class="text-center my-4">
+					<p>Please upload .mp4 videos only.</p>
+					<p>
+						To save the video, right-click on the output and select
+						"Save video as..."
+					</p>
+				</div>
+
+				<!-- Video Output Section -->
+				<div
+					id="video-output-container"
+					class="flex justify-center items-center my-8"
+				>
+					<!-- Video will be appended here -->
+				</div>
+				<script>
+					// Function to handle the form submission
+					function submitVideos(event, form) {
+						event.preventDefault();
+						const formData = new FormData(form);
+
+						// Display a loading message
+						const videoContainer = document.getElementById(
+							"video-output-container"
+						);
+						videoContainer.innerHTML = `<div class="text-center mt-4 text-lg font-medium">Processing videos, please wait...</div>`;
+
+						// Send the request to your server endpoint
+						fetch("/upload", {
+							method: "POST",
+							body: formData,
+						})
+							.then((response) => response.json())
+							.then((data) => {
+								if (data.output) {
+									displayVideo(data.output);
+								} else {
+									videoContainer.innerHTML = `<p>Error: No video URL in the response</p>`;
+								}
+							})
+							.catch((error) => {
+								console.error("Error:", error);
+								videoContainer.innerHTML = `<p>Error: ${error}</p>`;
+							});
+					}
+
+					function displayVideo(videoURL) {
+						const videoContainer = document.getElementById(
+							"video-output-container"
+						);
+						videoContainer.innerHTML = `
+						<div class="w-full flex justify-center">
+							<video src="${videoURL}" class="max-w-md mx-auto" controls></video>
+						</div>
+						`;
+					}
+
+					// Add an event listener to your form submission
+					const form = document.getElementById("video-upload-form");
+					form.addEventListener("submit", function (event) {
+						submitVideos(event, this);
+					});
+				</script>
 			</div>
-			<form
-				action="/upload"
-				method="post"
-				enctype="multipart/form-data"
-				class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
-			>
-				<div class="grid md:grid-cols-2 md:gap-6">
-					<!-- Video Options Column -->
-					<div class="mb-4 md:mb-0">
-						<label
-							for="video1"
-							class="block text-gray-700 text-sm font-bold mb-2"
-							>Video 1:</label
-						>
-						<input
-							type="file"
-							name="video1"
-							id="video1"
-							required
-							class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight"
-						/>
-
-						<label
-							for="video2"
-							class="block text-gray-700 text-sm font-bold mb-2 mt-4"
-							>Video 2:</label
-						>
-						<input
-							type="file"
-							name="video2"
-							id="video2"
-							required
-							class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight"
-						/>
-
-						<div class="mt-4">
-							<label
-								for="layoutVertical"
-								class="inline-flex items-center mr-6"
-							>
-								<input
-									type="radio"
-									name="layoutOption"
-									value="vertical"
-									checked
-									class="form-radio"
-								/>
-								<span class="ml-2">Vertical Split (Left / Right)</span>
-							</label>
-							<label
-								for="layoutHorizontal"
-								class="inline-flex items-center"
-							>
-								<input
-									type="radio"
-									name="layoutOption"
-									value="horizontal"
-									class="form-radio"
-								/>
-								<span class="ml-2">Horizontal Split (Top / Bottom)</span>
-							</label>
-						</div>
-					</div>
-
-					<!-- Audio Options Column -->
-					<div class="mb-4 md:mb-0">
-						<div class="block text-gray-700 text-sm font-bold mb-2">
-							Audio Options:
-						</div>
-						<div class="mt-2">
-							<label class="inline-flex items-center mb-2">
-								<input
-									type="radio"
-									class="form-radio"
-									name="audioOption"
-									value="audio1"
-									checked
-								/>
-								<span class="ml-2"
-									>Use audio from video 1 only</span
-								>
-							</label>
-						</div>
-						<div class="mt-2">
-							<label class="inline-flex items-center mb-2">
-								<input
-									type="radio"
-									class="form-radio"
-									name="audioOption"
-									value="audio2"
-								/>
-								<span class="ml-2"
-									>Use audio from video 2 only</span
-								>
-							</label>
-						</div>
-						<div class="mt-2">
-							<label class="inline-flex items-center">
-								<input
-									type="radio"
-									class="form-radio"
-									name="audioOption"
-									value="audioBoth"
-								/>
-								<span class="ml-2"
-									>Use audio from both videos</span
-								>
-							</label>
-						</div>
-					</div>
-				</div>
-
-				<div class="flex items-center justify-between mt-6">
-					<input
-						type="submit"
-						value="Submit"
-						class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-					/>
-				</div>
-			</form>
 		</div>
 	</body>
 </html>

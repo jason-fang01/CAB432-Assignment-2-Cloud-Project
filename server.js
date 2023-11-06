@@ -1,9 +1,28 @@
-const express = require("express");
-const multer = require("multer");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
 const app = express();
+
+require("dotenv").config();
+
+app.use(cors());
+
+const AWS = require("aws-sdk");
+
+AWS.config.update({
+	accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+	secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+	sessionToken: process.env.AWS_SESSION_TOKEN,
+	region: "ap-southeast-2",
+});
+
+// Create S3 service object using default configuration
+const s3 = new AWS.S3();
+
+const myBucket = "n10755888-cloud-bucket";
 
 // Create the uploads and outputs directories if they don't exist
 const uploadDir = path.join(__dirname, "uploads");
@@ -28,7 +47,7 @@ const storage = multer.diskStorage({
 		cb(
 			null,
 			file.fieldname + "-" + Date.now() + path.extname(file.originalname)
-		); // Use original file extension
+		);
 	},
 });
 
@@ -41,6 +60,36 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
+
+const s3Upload = (file, bucketName) => {
+	// Returns a promise that resolves with the URL of the uploaded file
+	return new Promise((resolve, reject) => {
+		fs.readFile(file.path, (err, data) => {
+			if (err) {
+				reject(err);
+			}
+			const params = {
+				Bucket: bucketName,
+				Key: path.basename(file.path),
+				Body: data,
+				ACL: "public-read",
+			};
+			s3.upload(params, (s3Err, data) => {
+				if (s3Err) {
+					console.error("Error in S3 upload: ", s3Err);
+					reject(s3Err);
+				} else {
+					console.log("S3 upload response data: ", data);
+					if (data && data.Location) {
+						resolve(data.Location); // The file URL
+					} else {
+						reject(new Error("Upload did not return a location"));
+					}
+				}
+			});
+		});
+	});
+};
 
 app.get("/", (req, res) => {
 	res.sendFile(__dirname + "/index.html");
@@ -93,7 +142,7 @@ app.post(
 		}
 
 		// Execute the FFmpeg command
-		exec(ffmpegCommand, (err, stdout, stderr) => {
+		exec(ffmpegCommand, async (err, stdout, stderr) => {
 			if (err) {
 				console.error("Error executing ffmpeg: ", err);
 				return res.status(500).send(err.message);
@@ -102,10 +151,28 @@ app.post(
 			console.log("FFmpeg stdout:\n", stdout);
 			if (stderr) console.log("FFmpeg stderr:\n", stderr);
 
-			res.send({
-				message: "Files uploaded and processed",
-				output: outputPath,
-			});
+			// After FFmpeg has successfully processed the video
+			try {
+				// Upload the output file to S3
+				const s3Response = await s3Upload(
+					{ path: outputPath },
+					myBucket
+				);
+
+				// After uploading, send the S3 file URL in the response
+				res.send({
+					message: "Files uploaded and processed",
+					output: s3Response, // This is the URL to access the file on S3
+				});
+
+				// Delete the local files
+				fs.unlinkSync(outputPath);
+				fs.unlinkSync(video1Path);
+				fs.unlinkSync(video2Path);
+			} catch (uploadErr) {
+				console.error("Error uploading file: ", uploadErr);
+				return res.status(500).send(uploadErr.message);
+			}
 		});
 	},
 	(error, req, res, next) => {
