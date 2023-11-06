@@ -1,16 +1,15 @@
-const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
-const app = express();
+const AWS = require("aws-sdk");
+const { v4: uuidv4 } = require("uuid");
 
+const app = express();
 require("dotenv").config();
 
 app.use(cors());
-
-const AWS = require("aws-sdk");
 
 AWS.config.update({
 	accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -19,25 +18,19 @@ AWS.config.update({
 	region: "ap-southeast-2",
 });
 
-// Create S3 service object using default configuration
 const s3 = new AWS.S3();
+const sqs = new AWS.SQS();
 
 const myBucket = "n10755888-cloud-bucket";
+const sqsQueueUrl = process.env.SQS_QUEUE_URL;
 
-// Create the uploads and outputs directories if they don't exist
 const uploadDir = path.join(__dirname, "uploads");
-const outputDir = path.join(__dirname, "outputs");
 
 if (!fs.existsSync(uploadDir)) {
 	fs.mkdirSync(uploadDir);
 }
 
-if (!fs.existsSync(outputDir)) {
-	fs.mkdirSync(outputDir);
-}
-
-// Specify where uploaded files will be stored
-const fileTypes = /video\/(mp4|mpeg|ogg|webm|3gp|mov|avi|wmv|mkv|flv)/; // Regex to match allowed video mime types
+const fileTypes = /video\/(mp4|mpeg|ogg|webm|3gp|mov|avi|wmv|mkv|flv)/;
 
 const storage = multer.diskStorage({
 	destination: function (req, file, cb) {
@@ -61,8 +54,8 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
+// Helper function to upload to S3
 const s3Upload = (file, bucketName) => {
-	// Returns a promise that resolves with the URL of the uploaded file
 	return new Promise((resolve, reject) => {
 		fs.readFile(file.path, (err, data) => {
 			if (err) {
@@ -79,12 +72,7 @@ const s3Upload = (file, bucketName) => {
 					console.error("Error in S3 upload: ", s3Err);
 					reject(s3Err);
 				} else {
-					console.log("S3 upload response data: ", data);
-					if (data && data.Location) {
-						resolve(data.Location); // The file URL
-					} else {
-						reject(new Error("Upload did not return a location"));
-					}
+					resolve(data.Location);
 				}
 			});
 		});
@@ -99,89 +87,64 @@ app.get("/", (req, res) => {
 app.post(
 	"/upload",
 	upload.fields([{ name: "video1" }, { name: "video2" }]),
-	(req, res) => {
+	async (req, res) => {
 		const files = req.files;
-		const audioOption = req.body.audioOption; // Get the audio option from the request body
 
 		if (!files.video1 || !files.video2) {
 			return res.status(400).send("Please upload two files.");
 		}
 
-		const video1Path = files.video1[0].path;
-		const video2Path = files.video2[0].path;
-		const outputPath = path.join(outputDir, Date.now() + "-merged.mp4");
+		try {
+			// Upload both videos to S3
+			const video1Url = await s3Upload(files.video1[0], myBucket);
+			const video2Url = await s3Upload(files.video2[0], myBucket);
 
-		const layoutOption = req.body.layoutOption; // Get the layout option from the request body
+			// Generate a unique ID for this job
+			const jobId = uuidv4();
 
-		// Choose the FFmpeg filter based on the layout option
-		let filterComplex;
-		if (layoutOption === "horizontal") {
-			// For horizontal split, scale each video to half of 1080 width (which is 540) but keep the 1920 height
-			filterComplex =
-				"[0:v]scale=1080:960,setsar=1[top];[1:v]scale=1080:960,setsar=1[bottom];[top][bottom]vstack=inputs=2[v]";
-		} else {
-			// Default to vertical if no layoutOption is specified or if it's 'vertical'
-			// For vertical split, scale each video to full 1080 width but half of 1920 height (which is 960)
-			filterComplex =
-				"[0:v]scale=540:1920,setsar=1[left];[1:v]scale=540:1920,setsar=1[right];[left][right]hstack=inputs=2[v]";
+			// Send a message to SQS with the details for the processing worker
+			const messageBody = JSON.stringify({
+				jobId,
+				video1Path: video1Url,
+				video2Path: video2Url,
+				audioOption: req.body.audioOption,
+				layoutOption: req.body.layoutOption,
+			});
+
+			const sqsParams = {
+				MessageBody: messageBody,
+				QueueUrl: sqsQueueUrl,
+			};
+
+			await sqs.sendMessage(sqsParams).promise();
+
+			res.send({
+				message: "Files uploaded and processing started",
+				jobId: jobId,
+			});
+		} catch (err) {
+			console.error("Error: ", err);
+			res.status(500).send(err.message);
 		}
-
-		// Choose FFmpeg command based on audio option
-		switch (req.body.audioOption) {
-			case "audio1":
-				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "${filterComplex}" -map "[v]" -map 0:a -c:a aac "${outputPath}"`;
-				break;
-			case "audio2":
-				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "${filterComplex}" -map "[v]" -map 1:a -c:a aac "${outputPath}"`;
-				break;
-			case "audioBoth":
-				ffmpegCommand = `ffmpeg -i "${video1Path}" -i "${video2Path}" -filter_complex "${filterComplex};[0:a][1:a]amix=inputs=2[a]" -map "[v]" -map "[a]" -c:a aac "${outputPath}"`;
-				break;
-			default:
-				return res.status(400).send("Invalid audio option selected.");
-		}
-
-		// Execute the FFmpeg command
-		exec(ffmpegCommand, async (err, stdout, stderr) => {
-			if (err) {
-				console.error("Error executing ffmpeg: ", err);
-				return res.status(500).send(err.message);
-			}
-
-			console.log("FFmpeg stdout:\n", stdout);
-			if (stderr) console.log("FFmpeg stderr:\n", stderr);
-
-			// After FFmpeg has successfully processed the video
-			try {
-				// Upload the output file to S3
-				const s3Response = await s3Upload(
-					{ path: outputPath },
-					myBucket
-				);
-
-				// After uploading, send the S3 file URL in the response
-				res.send({
-					message: "Files uploaded and processed",
-					output: s3Response, // This is the URL to access the file on S3
-				});
-
-				// Delete the local files
-				fs.unlinkSync(outputPath);
-				fs.unlinkSync(video1Path);
-				fs.unlinkSync(video2Path);
-			} catch (uploadErr) {
-				console.error("Error uploading file: ", uploadErr);
-				return res.status(500).send(uploadErr.message);
-			}
-		});
 	},
 	(error, req, res, next) => {
-		// Error handling middleware
 		if (error) {
 			return res.status(400).send(error.message);
 		}
 	}
 );
+
+app.get("/status/:jobId", (req, res) => {
+	const jobId = req.params.jobId;
+	// Get the status of the job from your storage (database, in-memory, etc.)
+	const job = getJobStatus(jobId);
+
+	if (job && job.status === "completed") {
+		res.json({ status: "completed", url: job.url });
+	} else {
+		res.json({ status: "processing" });
+	}
+});
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

@@ -170,6 +170,28 @@
 					<!-- Video will be appended here -->
 				</div>
 				<script>
+					// Function to check the status of the video processing
+					function checkVideoStatus(jobId) {
+						fetch(`/status/${jobId}`)
+							.then((response) => response.json())
+							.then((data) => {
+								if (data.status === "completed") {
+									document.getElementById("video").src =
+										data.url;
+									document
+										.getElementById("videoPlayer")
+										.load(); // To reload the video player with the new source
+								} else {
+									// If not completed, check again after some time
+									setTimeout(
+										() => checkVideoStatus(jobId),
+										5000
+									);
+								}
+							})
+							.catch((error) => console.error("Error:", error));
+					}
+
 					// Function to handle the form submission
 					function submitVideos(event, form) {
 						event.preventDefault();
@@ -179,7 +201,7 @@
 						const videoContainer = document.getElementById(
 							"video-output-container"
 						);
-						videoContainer.innerHTML = `<div class="text-center mt-4 text-lg font-medium">Processing videos, please wait...</div>`;
+						videoContainer.innerHTML = `<div class="text-center mt-4 text-lg font-medium">Uploading videos, please wait...</div>`;
 
 						// Send the request to your server endpoint
 						fetch("/upload", {
@@ -188,10 +210,12 @@
 						})
 							.then((response) => response.json())
 							.then((data) => {
-								if (data.output) {
-									displayVideo(data.output);
+								if (data.jobId) {
+									// Now call checkVideoStatus with the jobId
+									checkVideoStatus(data.jobId);
 								} else {
-									videoContainer.innerHTML = `<p>Error: No video URL in the response</p>`;
+									// Handle the case where jobId is not returned
+									videoContainer.innerHTML = `<p>Error: No jobId in the response. Unable to check the status.</p>`;
 								}
 							})
 							.catch((error) => {
